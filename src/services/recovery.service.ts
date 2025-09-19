@@ -441,11 +441,11 @@ export class RecoveryService {
     const prisma = this.database.getClient();
 
     try {
-      // Get questions using the correct table name (question lowercase)
-      const questions = await this.database.executeWithRetry(async () => {
-        return await prisma.question.findMany({
+        // Get questions using the correct table name (question lowercase)
+        const questions = await this.database.executeWithRetry(async () => {
+          return await prisma.question.findMany({
           where: { surveyId: simulation.surveyId },
-          include: { Option: true },
+          include: { options: true },
           orderBy: { order: 'asc' },
         });
       });

@@ -46,24 +46,42 @@ model surveys {
 }
 
 model question {
-  id        Int      @id @default(autoincrement())
-  question  String
-  order     Int
-  surveyId  Int
-  survey    surveys  @relation(fields: [surveyId], references: [id])
-  Option    option[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               Int      @id @default(autoincrement())
+  question         String   @map("title")  // Map 'question' field to 'title' column
+  order            Int
+  required         Boolean
+  surveyId         Int
+  groupId          Int
+  userId           Int
+  status           String
+  question_type    String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  max_value        Float?
+  min_value        Float?
+  max_description  String?
+  min_description  String?
+  scale_labels     String[]
+  sub_questions    String[]
+  survey           surveys  @relation(fields: [surveyId], references: [id])
+  options          option[]
+
+  @@map("Question")
 }
 
 model option {
   id         Int      @id @default(autoincrement())
-  option     String
+  option     String   @map("title")  // Map 'option' field to 'title' column
   order      Int
   questionId Int
+  groupId    Int
+  userId     Int
+  surveyId   Int
   question   question @relation(fields: [questionId], references: [id])
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@map("Option")
 }
 
 model personas {

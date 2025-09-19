@@ -1,0 +1,179 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model users {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  groups    groups[]
+  simulation_queue_jobs simulation_queue_jobs[]
+}
+
+model groups {
+  id          Int      @id @default(autoincrement())
+  group_name  String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       users[]
+  surveys     surveys[]
+}
+
+model surveys {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  isLocked    Boolean  @default(false)
+  isVisible   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  groupId     Int
+  Group       groups   @relation(fields: [groupId], references: [id])
+  questions   question[]
+  simulations simulations[]
+  simulation_queue_jobs simulation_queue_jobs[]
+}
+
+model question {
+  id        Int      @id @default(autoincrement())
+  question  String
+  order     Int
+  surveyId  Int
+  survey    surveys  @relation(fields: [surveyId], references: [id])
+  Option    option[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model option {
+  id         Int      @id @default(autoincrement())
+  option     String
+  order      Int
+  questionId Int
+  question   question @relation(fields: [questionId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model personas {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model simulations {
+  id                     Int              @id @default(autoincrement())
+  surveyId               Int
+  simulationId           String           @unique
+  simulationQuestion     String
+  simulationPersona      String
+  jobNumber              String
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime
+  error_message          String?
+  estimated_completion   DateTime?
+  failed_requests        Int              @default(0)
+  progress_percentage    Decimal          @default(0) @db.Decimal(5, 2)
+  status                 SimulationStatus @default(PENDING)
+  successful_requests    Int              @default(0)
+  total_requests         Int              @default(0)
+  is_random_selection    Boolean          @default(false)
+  selected_persona_count Int              @default(0)
+  selected_persona_ids   Int[]            @default([])
+  recovery_attempts      Int              @default(0)
+  last_recovery_attempt  DateTime?
+  recovery_status        String           @default("NONE")
+  crashed_at             DateTime?
+  resumed_at             DateTime?
+  queue_position         Int?
+  estimated_start_time   DateTime?
+  queue_job_id           String?
+  retry_count            Int              @default(0)
+  surveys                surveys          @relation(fields: [surveyId], references: [id])
+  simulation_recovery_logs simulation_recovery_logs[]
+
+  @@index([jobNumber])
+  @@index([simulationId])
+  @@index([status])
+  @@index([surveyId])
+  @@index([queue_job_id])
+}
+
+model survey_responses {
+  id           Int      @id @default(autoincrement())
+  surveyId     Int
+  questionId   Int
+  optionId     Int?
+  personaId    Int
+  simulationId String
+  answer       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([simulationId])
+  @@index([personaId])
+  @@index([surveyId])
+}
+
+model simulation_queue_jobs {
+  id                   Int      @id @default(autoincrement())
+  job_id               String   @unique
+  survey_id            Int
+  user_id              Int
+  persona_count        Int
+  selected_persona_ids Int[]    @default([])
+  is_random_selection  Boolean  @default(true)
+  status               String   @default("PENDING")
+  progress_percentage  Decimal  @default(0) @db.Decimal(5, 2)
+  priority             Int      @default(0)
+  created_at           DateTime @default(now())
+  started_at           DateTime?
+  completed_at         DateTime?
+  failed_at            DateTime?
+  retry_count          Int      @default(0)
+  max_retries          Int      @default(3)
+  error_message        String?
+  metadata             Json     @default("{}")
+  surveys              surveys  @relation(fields: [survey_id], references: [id])
+  users                users    @relation(fields: [user_id], references: [id])
+
+  @@index([status])
+  @@index([created_at])
+  @@index([priority])
+  @@index([job_id])
+}
+
+model simulation_recovery_logs {
+  id                   Int      @id @default(autoincrement())
+  simulation_id        Int
+  recovery_attempt     Int
+  status               String
+  message              String?
+  processed_personas   Int      @default(0)
+  remaining_personas   Int      @default(0)
+  created_at           DateTime @default(now())
+  simulations          simulations @relation(fields: [simulation_id], references: [id])
+
+  @@index([simulation_id])
+  @@index([created_at])
+}
+
+enum SimulationStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}

@@ -20,8 +20,8 @@ export class CronService {
     }
 
     try {
-      // Recovery check every 5 minutes
-      const recoveryInterval = process.env.RECOVERY_INTERVAL_MINUTES || '5';
+      // Recovery check every 15 minutes (reduced frequency to prevent loops)
+      const recoveryInterval = process.env.RECOVERY_INTERVAL_MINUTES || '15';
       const recoveryCron = `*/${recoveryInterval} * * * *`;
       
       const recoveryTask = cron.schedule(recoveryCron, async () => {
@@ -70,8 +70,8 @@ export class CronService {
 
       this.tasks.set('health', healthTask);
 
-      // Failed simulation recovery every 10 minutes
-      const failedRecoveryTask = cron.schedule('*/10 * * * *', async () => {
+      // Failed simulation recovery every 30 minutes (reduced frequency)
+      const failedRecoveryTask = cron.schedule('*/30 * * * *', async () => {
         this.logger.info('🔄 Running failed simulation recovery...');
         try {
           await this.recoveryService.checkAndRecoverFailedSimulations();
@@ -85,8 +85,8 @@ export class CronService {
 
       this.tasks.set('failed-recovery', failedRecoveryTask);
 
-      // Stuck simulation recovery every 5 minutes
-      const stuckRecoveryTask = cron.schedule('*/5 * * * *', async () => {
+      // Stuck simulation recovery every 20 minutes (reduced frequency)
+      const stuckRecoveryTask = cron.schedule('*/20 * * * *', async () => {
         this.logger.info('🔄 Running stuck simulation recovery...');
         try {
           await this.recoveryService.checkAndRecoverStuckSimulations();

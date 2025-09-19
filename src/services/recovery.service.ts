@@ -359,6 +359,9 @@ export class RecoveryService {
   async checkAndRecoverIncompleteSimulations(): Promise<RecoveryResult> {
     this.logger.info('🔍 Starting simulation recovery process...');
 
+    // Add initial delay to prevent immediate retries
+    await this.delay(5000); // 5 second delay
+
     let recovered = 0;
     let failed = 0;
     const issues: string[] = [];
@@ -385,10 +388,16 @@ export class RecoveryService {
         try {
           await this.resumeIncompleteSimulation(simulation);
           recovered++;
+          
+          // Add delay between recovery attempts to prevent overwhelming the system
+          await this.delay(2000); // 2 second delay
         } catch (error) {
           this.logger.error(`Failed to recover simulation ${simulation.simulationId}:`, error);
           failed++;
           issues.push(`Simulation ${simulation.simulationId} failed to recover: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          
+          // Add delay even for failed attempts
+          await this.delay(1000); // 1 second delay
         }
       }
 
@@ -441,13 +450,13 @@ export class RecoveryService {
     const prisma = this.database.getClient();
 
     try {
-        // Get questions using the correct table name (question lowercase)
+        // Get questions using the correct table name (Question capitalized)
         const questions = await this.database.executeWithRetry(async () => {
           return await prisma.question.findMany({
-          where: { surveyId: simulation.surveyId },
-          include: { options: true },
-          orderBy: { order: 'asc' },
-        });
+            where: { surveyId: simulation.surveyId },
+            include: { Option: true },
+            orderBy: { order: 'asc' },
+          });
       });
 
       // Get completed persona IDs

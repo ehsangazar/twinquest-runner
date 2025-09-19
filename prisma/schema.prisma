@@ -11,75 +11,98 @@ datasource db {
 }
 
 model users {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  groups    groups[]
+  id               Int      @id @default(autoincrement())
+  email            String   @unique
+  name             String
+  role             String   @default("user")
+  verificationCode String?  @map("verification_code")
+  codeExpiresAt    DateTime? @map("code_expires_at")
+  isVerified       Boolean  @default(false) @map("is_verified")
+  photoUrl         String?  @map("photo_url")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  groups           groups[]
+  groupUser        groupUser[]
   simulation_queue_jobs simulation_queue_jobs[]
 }
 
 model groups {
   id          Int      @id @default(autoincrement())
-  group_name  String
+  group_name  String   @map("group_name")
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  ownerId     Int?     @map("owner_id")
+  initial_budget_per_user Decimal? @db.Decimal(10, 2) @map("initial_budget_per_user")
+  status      String?  @default("ACTIVE")
+  owner_email String?  @map("owner_email")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
   users       users[]
   surveys     surveys[]
+  GroupUser   groupUser[]
+
+  @@map("Group")
 }
 
 model surveys {
   id          Int      @id @default(autoincrement())
   title       String
   description String?
-  isLocked    Boolean  @default(false)
-  isVisible   Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  groupId     Int
+  isLocked    Boolean  @default(false) @map("is_locked")
+  isVisible   Boolean  @default(true) @map("is_visible")
+  userId      Int?     @map("user_id")
+  visibility  String   @default("PRIVATE")
+  status      String   @default("ACTIVE")
+  simulation_status String? @map("simulation_status")
+  simulation_started_at DateTime? @map("simulation_started_at")
+  simulation_completed_at DateTime? @map("simulation_completed_at")
+  total_personas Int?  @map("total_personas")
+  processed_personas Int? @map("processed_personas")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  groupId     Int      @map("group_id")
   Group       groups   @relation(fields: [groupId], references: [id])
-  questions   question[]
+  Question    Question[]
   simulations simulations[]
   simulation_queue_jobs simulation_queue_jobs[]
 }
 
-model question {
+model Question {
   id               Int      @id @default(autoincrement())
-  question         String   @map("title")  // Map 'question' field to 'title' column
+  title            String
   order            Int
-  required         Boolean
-  surveyId         Int
-  groupId          Int
-  userId           Int
-  status           String
-  question_type    String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  max_value        Float?
-  min_value        Float?
-  max_description  String?
-  min_description  String?
-  scale_labels     String[]
-  sub_questions    String[]
+  required         Boolean  @default(false)
+  surveyId         Int      @map("survey_id")
+  groupId          Int      @map("group_id")
+  userId           Int      @map("user_id")
+  status           String   @default("ACTIVE")
+  question_type    String   @default("SINGLE_CHOICE") @map("question_type")
+  max_value        Float?   @map("max_value")
+  min_value        Float?   @map("min_value")
+  max_description  String?  @map("max_description")
+  min_description  String?  @map("min_description")
+  scale_labels     String[] @map("scale_labels")
+  sub_questions    String[] @map("sub_questions")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
   survey           surveys  @relation(fields: [surveyId], references: [id])
-  options          option[]
+  Option           Option[]
+  survey_responses survey_responses[]
 
   @@map("Question")
 }
 
-model option {
+model Option {
   id         Int      @id @default(autoincrement())
-  option     String   @map("title")  // Map 'option' field to 'title' column
+  title      String
   order      Int
-  questionId Int
-  groupId    Int
-  userId     Int
-  surveyId   Int
-  question   question @relation(fields: [questionId], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  questionId Int      @map("question_id")
+  groupId    Int      @map("group_id")
+  userId     Int      @map("user_id")
+  surveyId   Int      @map("survey_id")
+  question   Question @relation(fields: [questionId], references: [id])
+  survey_responses survey_responses[]
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("Option")
 }
@@ -88,38 +111,64 @@ model personas {
   id          Int      @id @default(autoincrement())
   name        String
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  survey_responses survey_responses[]
+}
+
+model groupUser {
+  id        Int     @id @default(autoincrement())
+  userId    Int     @map("user_id")
+  groupId   Int     @map("group_id")
+  budget    Decimal @default(0) @db.Decimal(10, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      users   @relation(fields: [userId], references: [id])
+  group     groups  @relation(fields: [groupId], references: [id])
+  transactions transactions[]
+
+  @@unique([userId, groupId])
+  @@map("GroupUser")
+}
+
+model transactions {
+  id          Int      @id @default(autoincrement())
+  groupUserId Int      @map("group_user_id")
+  amount      Decimal  @db.Decimal(10, 2)
+  type        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  groupUser   groupUser @relation(fields: [groupUserId], references: [id])
 }
 
 model simulations {
   id                     Int              @id @default(autoincrement())
-  surveyId               Int
-  simulationId           String           @unique
-  simulationQuestion     String
-  simulationPersona      String
-  jobNumber              String
-  createdAt              DateTime         @default(now())
-  updatedAt              DateTime
-  error_message          String?
-  estimated_completion   DateTime?
-  failed_requests        Int              @default(0)
-  progress_percentage    Decimal          @default(0) @db.Decimal(5, 2)
+  surveyId               Int              @map("survey_id")
+  simulationId           String           @unique @map("simulation_id")
+  simulationQuestion     String           @map("simulation_question")
+  simulationPersona      String           @map("simulation_persona")
+  jobNumber              String           @map("job_number")
+  createdAt              DateTime         @default(now()) @map("created_at")
+  updatedAt              DateTime         @updatedAt @map("updated_at")
+  error_message          String?          @map("error_message")
+  estimated_completion   DateTime?        @map("estimated_completion")
+  failed_requests        Int              @default(0) @map("failed_requests")
+  progress_percentage    Decimal          @default(0) @db.Decimal(5, 2) @map("progress_percentage")
   status                 SimulationStatus @default(PENDING)
-  successful_requests    Int              @default(0)
-  total_requests         Int              @default(0)
-  is_random_selection    Boolean          @default(false)
-  selected_persona_count Int              @default(0)
-  selected_persona_ids   Int[]            @default([])
-  recovery_attempts      Int              @default(0)
-  last_recovery_attempt  DateTime?
-  recovery_status        String           @default("NONE")
-  crashed_at             DateTime?
-  resumed_at             DateTime?
-  queue_position         Int?
-  estimated_start_time   DateTime?
-  queue_job_id           String?
-  retry_count            Int              @default(0)
+  successful_requests    Int              @default(0) @map("successful_requests")
+  total_requests         Int              @default(0) @map("total_requests")
+  is_random_selection    Boolean          @default(false) @map("is_random_selection")
+  selected_persona_count Int              @default(0) @map("selected_persona_count")
+  selected_persona_ids   Int[]            @default([]) @map("selected_persona_ids")
+  recovery_attempts      Int              @default(0) @map("recovery_attempts")
+  last_recovery_attempt  DateTime?        @map("last_recovery_attempt")
+  recovery_status        String           @default("NONE") @map("recovery_status")
+  crashed_at             DateTime?        @map("crashed_at")
+  resumed_at             DateTime?        @map("resumed_at")
+  queue_position         Int?             @map("queue_position")
+  estimated_start_time   DateTime?        @map("estimated_start_time")
+  queue_job_id           String?          @map("queue_job_id")
+  retry_count            Int              @default(0) @map("retry_count")
   surveys                surveys          @relation(fields: [surveyId], references: [id])
   simulation_recovery_logs simulation_recovery_logs[]
 
@@ -132,14 +181,17 @@ model simulations {
 
 model survey_responses {
   id           Int      @id @default(autoincrement())
-  surveyId     Int
-  questionId   Int
-  optionId     Int?
-  personaId    Int
-  simulationId String
+  surveyId     Int      @map("survey_id")
+  questionId   Int      @map("question_id")
+  optionId     Int?     @map("option_id")
+  personaId    Int      @map("persona_id")
+  simulationId String   @map("simulation_id")
   answer       String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  Question     Question @relation(fields: [questionId], references: [id])
+  Option       Option?  @relation(fields: [optionId], references: [id])
+  personas     personas @relation(fields: [personaId], references: [id])
 
   @@index([simulationId])
   @@index([personaId])
@@ -148,22 +200,22 @@ model survey_responses {
 
 model simulation_queue_jobs {
   id                   Int      @id @default(autoincrement())
-  job_id               String   @unique
-  survey_id            Int
-  user_id              Int
-  persona_count        Int
-  selected_persona_ids Int[]    @default([])
-  is_random_selection  Boolean  @default(true)
+  job_id               String   @unique @map("job_id")
+  survey_id            Int      @map("survey_id")
+  user_id              Int      @map("user_id")
+  persona_count        Int      @map("persona_count")
+  selected_persona_ids Int[]    @default([]) @map("selected_persona_ids")
+  is_random_selection  Boolean  @default(true) @map("is_random_selection")
   status               String   @default("PENDING")
-  progress_percentage  Decimal  @default(0) @db.Decimal(5, 2)
+  progress_percentage  Decimal  @default(0) @db.Decimal(5, 2) @map("progress_percentage")
   priority             Int      @default(0)
-  created_at           DateTime @default(now())
-  started_at           DateTime?
-  completed_at         DateTime?
-  failed_at            DateTime?
-  retry_count          Int      @default(0)
-  max_retries          Int      @default(3)
-  error_message        String?
+  created_at           DateTime @default(now()) @map("created_at")
+  started_at           DateTime? @map("started_at")
+  completed_at         DateTime? @map("completed_at")
+  failed_at            DateTime? @map("failed_at")
+  retry_count          Int      @default(0) @map("retry_count")
+  max_retries          Int      @default(3) @map("max_retries")
+  error_message        String?  @map("error_message")
   metadata             Json     @default("{}")
   surveys              surveys  @relation(fields: [survey_id], references: [id])
   users                users    @relation(fields: [user_id], references: [id])
@@ -176,13 +228,13 @@ model simulation_queue_jobs {
 
 model simulation_recovery_logs {
   id                   Int      @id @default(autoincrement())
-  simulation_id        Int
-  recovery_attempt     Int
+  simulation_id        Int      @map("simulation_id")
+  recovery_attempt     Int      @map("recovery_attempt")
   status               String
   message              String?
-  processed_personas   Int      @default(0)
-  remaining_personas   Int      @default(0)
-  created_at           DateTime @default(now())
+  processed_personas   Int      @default(0) @map("processed_personas")
+  remaining_personas   Int      @default(0) @map("remaining_personas")
+  created_at           DateTime @default(now()) @map("created_at")
   simulations          simulations @relation(fields: [simulation_id], references: [id])
 
   @@index([simulation_id])
@@ -194,4 +246,17 @@ enum SimulationStatus {
   RUNNING
   COMPLETED
   FAILED
+}
+
+enum SurveyVisibilityStatus {
+  PUBLIC
+  PRIVATE
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  TEXT_ENTRY
+  SLIDER
+  MATRIX
 }

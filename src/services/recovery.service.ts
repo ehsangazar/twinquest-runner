@@ -98,7 +98,7 @@ export class RecoveryService {
       await this.database.executeWithRetry(async () => {
         await prisma.$executeRaw`
           UPDATE simulations
-          SET "status" = 'RUNNING'::"SimulationStatus", "updatedAt" = NOW()
+          SET "status" = 'RUNNING'::"SimulationStatus", "updated_at" = NOW()
           WHERE "queue_job_id" = ${job.job_id}
         `;
       });
@@ -119,7 +119,7 @@ export class RecoveryService {
       await this.database.executeWithRetry(async () => {
         await prisma.$executeRaw`
           UPDATE simulations
-          SET "status" = 'COMPLETED'::"SimulationStatus", "updatedAt" = NOW(), "progress_percentage" = 100
+          SET "status" = 'COMPLETED'::"SimulationStatus", "updated_at" = NOW(), "progress_percentage" = 100
           WHERE "queue_job_id" = ${job.job_id}
         `;
       });
@@ -172,8 +172,8 @@ export class RecoveryService {
         }>>`
           SELECT 
             s.id,
-            s."simulationId",
-            s."surveyId",
+            s."simulation_id" as "simulationId",
+            s."survey_id" as "surveyId",
             s."status",
             s."retry_count",
             s."queue_job_id",
@@ -184,7 +184,7 @@ export class RecoveryService {
           LEFT JOIN simulation_queue_jobs qj ON s."queue_job_id" = qj."job_id"
           WHERE s."status" = 'FAILED'
           AND (qj."retry_count" < qj."max_retries" OR qj."retry_count" IS NULL)
-          AND s."createdAt" > NOW() - INTERVAL '24 hours'
+          AND s."created_at" > NOW() - INTERVAL '24 hours'
         `;
       });
 
@@ -208,7 +208,7 @@ export class RecoveryService {
           await this.database.executeWithRetry(async () => {
             await prisma.$executeRaw`
               UPDATE simulations
-              SET "status" = 'PENDING'::"SimulationStatus", "updatedAt" = NOW(), "error_message" = NULL
+              SET "status" = 'PENDING'::"SimulationStatus", "updated_at" = NOW(), "error_message" = NULL
               WHERE "id" = ${simulation.id}
             `;
           });
@@ -278,14 +278,14 @@ export class RecoveryService {
         }>>`
           SELECT 
             s.id,
-            s."simulationId",
-            s."surveyId",
+            s."simulation_id" as "simulationId",
+            s."survey_id" as "surveyId",
             s."status",
-            s."updatedAt",
+            s."updated_at" as "updatedAt",
             s."queue_job_id"
           FROM simulations s
           WHERE s."status" = 'RUNNING'
-          AND s."updatedAt" < NOW() - INTERVAL '10 minutes'
+          AND s."updated_at" < NOW() - INTERVAL '10 minutes'
         `;
       });
 
@@ -309,7 +309,7 @@ export class RecoveryService {
           await this.database.executeWithRetry(async () => {
             await prisma.$executeRaw`
               UPDATE simulations
-              SET "status" = 'PENDING'::"SimulationStatus", "updatedAt" = NOW(), "error_message" = 'Recovered from stuck state'
+              SET "status" = 'PENDING'::"SimulationStatus", "updated_at" = NOW(), "error_message" = 'Recovered from stuck state'
               WHERE "id" = ${simulation.id}
             `;
           });

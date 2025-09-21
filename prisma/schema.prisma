@@ -10,11 +10,58 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  user
+  admin
+  super_admin
+}
+
+enum GroupStatus {
+  open
+  close
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  MATRIX
+  SLIDER
+  TEXT_ENTRY
+}
+
+enum QuestionStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SimulationStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum SurveyStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SurveyVisibilityStatus {
+  PUBLIC
+  PRIVATE
+}
+
+enum TransactionType {
+  ADD
+  MINES
+  SET
+}
+
 model users {
   id               Int      @id @default(autoincrement())
   email            String   @unique
-  name             String
-  role             String   @default("user")
+  name             String?
+  role             Role     @default(user)
   verificationCode String?  @map("verification_code")
   codeExpiresAt    DateTime? @map("code_expires_at")
   isVerified       Boolean  @default(false) @map("is_verified")
@@ -29,11 +76,10 @@ model users {
 model groups {
   id          Int      @id @default(autoincrement())
   group_name  String   @map("group_name")
-  description String?
-  ownerId     Int?     @map("owner_id")
-  initial_budget_per_user Decimal? @db.Decimal(10, 2) @map("initial_budget_per_user")
-  status      String?  @default("ACTIVE")
-  owner_email String?  @map("owner_email")
+  ownerId     Int      @map("owner_id")
+  initial_budget_per_user Decimal @db.Decimal(10, 2) @map("initial_budget_per_user")
+  status      GroupStatus  @default(open)
+  owner_email String   @map("owner_email")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   users       users[]
@@ -48,15 +94,15 @@ model surveys {
   title       String
   description String?
   isLocked    Boolean  @default(false) @map("is_locked")
-  isVisible   Boolean  @default(true) @map("is_visible")
-  userId      Int?     @map("user_id")
-  visibility  String   @default("PRIVATE")
-  status      String   @default("ACTIVE")
-  simulation_status String? @map("simulation_status")
+  isVisible   Boolean? @map("is_visible")
+  userId      Int      @map("user_id")
+  visibility  SurveyVisibilityStatus   @default(PRIVATE)
+  status      SurveyStatus   @default(ACTIVE)
+  simulation_status SimulationStatus @default(PENDING) @map("simulation_status")
   simulation_started_at DateTime? @map("simulation_started_at")
   simulation_completed_at DateTime? @map("simulation_completed_at")
-  total_personas Int?  @map("total_personas")
-  processed_personas Int? @map("processed_personas")
+  total_personas Int   @default(2000) @map("total_personas")
+  processed_personas Int @default(0) @map("processed_personas")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   groupId     Int      @map("group_id")
@@ -74,8 +120,8 @@ model Question {
   surveyId         Int      @map("survey_id")
   groupId          Int      @map("group_id")
   userId           Int      @map("user_id")
-  status           String   @default("ACTIVE")
-  question_type    String   @default("SINGLE_CHOICE") @map("question_type")
+  status           QuestionStatus   @default(ACTIVE)
+  question_type    QuestionType @default(SINGLE_CHOICE) @map("question_type")
   max_value        Float?   @map("max_value")
   min_value        Float?   @map("min_value")
   max_description  String?  @map("max_description")
@@ -133,12 +179,15 @@ model groupUser {
 
 model transactions {
   id          Int      @id @default(autoincrement())
-  groupUserId Int      @map("group_user_id")
+  userId      Int      @map("user_id")
+  groupId     Int      @map("group_id")
+  groupUserId Int?     @map("group_user_id")
   amount      Decimal  @db.Decimal(10, 2)
-  type        String
-  description String?
+  type        TransactionType
+  description String
   createdAt   DateTime @default(now()) @map("created_at")
-  groupUser   groupUser @relation(fields: [groupUserId], references: [id])
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  groupUser   groupUser? @relation(fields: [groupUserId], references: [id])
 }
 
 model simulations {
@@ -239,24 +288,4 @@ model simulation_recovery_logs {
 
   @@index([simulation_id])
   @@index([created_at])
-}
-
-enum SimulationStatus {
-  PENDING
-  RUNNING
-  COMPLETED
-  FAILED
-}
-
-enum SurveyVisibilityStatus {
-  PUBLIC
-  PRIVATE
-}
-
-enum QuestionType {
-  SINGLE_CHOICE
-  MULTIPLE_CHOICE
-  TEXT_ENTRY
-  SLIDER
-  MATRIX
 }

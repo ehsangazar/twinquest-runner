@@ -21,9 +21,8 @@ class RecoveryApplication {
     try {
       this.logger.info('🚀 Starting TwinQuest Recovery Service...');
 
-      // Initialize database connection
-      await this.databaseService.connect();
-      this.logger.info('✅ Database connected successfully');
+      // Initialize database connection with retry
+      await this.initializeDatabase();
 
       // Start cron jobs
       await this.cronService.start();
@@ -40,10 +39,66 @@ class RecoveryApplication {
       process.on('SIGINT', this.gracefulShutdown.bind(this));
       process.on('SIGTERM', this.gracefulShutdown.bind(this));
 
+      // Start connection monitoring
+      this.startConnectionMonitoring();
+
     } catch (error) {
       this.logger.error('❌ Failed to start recovery service:', error);
       process.exit(1);
     }
+  }
+
+  private async initializeDatabase(): Promise<void> {
+    const maxAttempts = 5;
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+      try {
+        await this.databaseService.connect();
+        this.logger.info('✅ Database connected successfully');
+        return;
+      } catch (error) {
+        attempts++;
+        this.logger.error(`Database connection attempt ${attempts}/${maxAttempts} failed:`, error);
+        
+        if (attempts >= maxAttempts) {
+          throw new Error(`Failed to connect to database after ${maxAttempts} attempts`);
+        }
+        
+        this.logger.info(`Retrying database connection in 10 seconds...`);
+        await this.delay(10000);
+      }
+    }
+  }
+
+  private startConnectionMonitoring(): void {
+    // Check database connection every 5 seconds for very responsive recovery
+    setInterval(async () => {
+      try {
+        const isHealthy = await this.databaseService.healthCheck();
+        if (!isHealthy) {
+          this.logger.warn('⚠️ Database health check failed, attempting to reconnect...');
+          const reconnected = await this.databaseService.reconnect();
+          if (reconnected) {
+            this.logger.info('✅ Database reconnected successfully');
+          } else {
+            this.logger.error('❌ Failed to reconnect to database');
+          }
+        }
+      } catch (error) {
+        this.logger.error('❌ Error during connection monitoring:', error);
+        // Try to reconnect on any error
+        this.logger.warn('🔄 Attempting to reconnect due to monitoring error...');
+        const reconnected = await this.databaseService.reconnect();
+        if (reconnected) {
+          this.logger.info('✅ Database reconnected after monitoring error');
+        }
+      }
+    }, 5000); // 5 seconds for very responsive recovery
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   private async gracefulShutdown() {

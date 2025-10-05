@@ -7,7 +7,8 @@
     "build": "tsc",
     "start": "node dist/main.js",
     "dev": "ts-node src/main.ts",
-    "start:prod": "npm run build && npm run start"
+    "start:prod": "npm run build && npm run start",
+    "start:local": "npm run build && npm run start"
   },
   "dependencies": {
     "@prisma/client": "^6.16.1",

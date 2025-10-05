@@ -1,4 +1,8 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+// Load environment variables from env.local file
+config({ path: resolve(__dirname, '../../env.local') });
 import { RecoveryService } from './services/recovery.service';
 import { CronService } from './services/cron.service';
 import { DatabaseService } from './services/database.service';
